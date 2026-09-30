@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline Math Engine</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.85);
+      --text: #f8fafc;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --fail: #ef4444;
+      --warning: #f59e0b;
+      --glow: rgba(56, 189, 248, 0.4);
+    }
+    
+    /* Animated Background */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(-45deg, #0f172a, #1e293b, #020617, #0f172a);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 40px 15px;
+      margin: 0;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Glassmorphism Container */
+    .container {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 35px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      position: relative;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 15px;
+    }
+    h2 { margin: 0; color: var(--accent); font-size: 1.8rem; text-shadow: 0 0 10px var(--glow); }
+    
+    .controls-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    select {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text);
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 1rem;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    select:focus { border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
+    
+    .sprint-dashboard {
+      display: flex;
+      justify-content: space-between;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .metric { text-align: center; }
+    .metric-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .metric-value { font-size: 1.6rem; font-weight: bold; color: var(--text); }
+    #timerDisplay { color: var(--accent); transition: color 0.3s; }
+    .timer-warning { color: var(--fail) !important; animation: pulse 1s infinite, textGlow 1s infinite; }
+
+    .problem-area { text-align: center; margin-bottom: 20px; perspective: 1000px; }
+    
+    .question {
+      font-size: 4rem;
+      font-weight: 800;
+      margin: 25px 0;
+      letter-spacing: 2px;
+      min-height: 80px;
+      text-shadow: 2px 4px 10px rgba(0,0,0,0.5);
+    }
+    
+    .input-box {
+      width: 80%;
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text);
+      border: 2px solid #475569;
+      border-radius: 12px;
+      padding: 18px;
+      font-size: 2.2rem;
+      text-align: center;
+      outline: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .input-box:focus { border-color: var(--accent); box-shadow: 0 0 20px var(--glow); transform: scale(1.02); }
+    
+    .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+    button {
+      background: rgba(51, 65, 85, 0.8);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 14px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    button:hover:not(:disabled) { background: #475569; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    #sprintBtn { 
+      background: var(--accent); 
+      color: #0f172a; 
+      width: 100%; 
+      margin-bottom: 25px; 
+      font-size: 1.2rem; 
+      border: none;
+      box-shadow: 0 0 15px var(--glow);
+    }
+    #sprintBtn:hover:not(:disabled) { background: #0284c7; box-shadow: 0 0 25px var(--glow); }
+
+    .feedback { margin-top: 15px; font-size: 1.2rem; height: 30px; text-align: center; font-weight: bold; }
+
+    /* Action Animations */
+    .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; border-color: var(--fail) !important; }
+    .slide-in { animation: slideIn 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+    .success-flash { border-color: var(--success) !important; background: rgba(34, 197, 94, 0.15) !important; box-shadow: 0 0 20px rgba(34, 197, 94, 0.4) !important; }
+
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+    @keyframes slideIn {
+      0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.05); }
+    }
+    @keyframes textGlow {
+      0%, 100% { text-shadow: 0 0 10px var(--fail); }
+      50% { text-shadow: 0 0 20px var(--fail), 0 0 30px var(--fail); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h2>Offline Math Engine</h2>
+    <div style="font-size: 0.9rem; color: #94a3b8;">Best: <span id="bestScoreDisplay" style="color: var(--accent); font-weight: bold;">0</span></div>
+  </div>
+
+  <div class="controls-row">
+    <select id="modeSelect">
+      <option value="tables">Tables (12 to 100)</option>
+      <option value="squares">Squares (1 to 40)</option>
+      <option value="cubes">Cubes (1 to 20)</option>
+      <option value="fractions">% to Fraction</option>
+    </select>
+    
+    <select id="timeSelect">
+      <option value="60">1 Minute</option>
+      <option value="300">5 Minutes</option>
+      <option value="600">10 Minutes</option>
+      <option value="1800">30 Minutes</option>
+      <option value="3600">1 Hour</option>
+      <option value="7200">2 Hours</option>
+    </select>
+  </div>
+
+  <button id="sprintBtn">Start Session</button>
+
+  <div class="sprint-dashboard">
+    <div class="metric">
+      <div class="metric-label">Time</div>
+      <div class="metric-value" id="timerDisplay">00:00</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Score</div>
+      <div class="metric-value" id="currentScoreDisplay">0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Accuracy</div>
+      <div class="metric-value" id="accuracyDisplay">0%</div>
+    </div>
+  </div>
+
+  <div class="problem-area">
+    <div class="question" id="problemDisplay">Ready</div>
+    <input type="text" id="answerInput" class="input-box" placeholder="?" autocomplete="off" disabled />
+    <div class="feedback" id="statusMessage"></div>
+    
+    <div class="btn-group">
+      <button id="showAnswerBtn" disabled>Reveal Answer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const generators = {
+    "tables": () => {
+      // Adjusted to generate tables up to 100 (e.g., 87 x 7)
+      const a = Math.floor(Math.random() * 89) + 12; // 12 to 100
+      const b = Math.floor(Math.random() * 9) + 2;   // 2 to 10
+      return { p: `${a} × ${b}`, a: (a * b).toString() };
+    },
+    "squares": () => {
+      const n = Math.floor(Math.random() * 40) + 1;
+      return { p: `${n}²`, a: (n * n).toString() };
+    },
+    "cubes": () => {
+      const n = Math.floor(Math.random() * 20) + 1;
+      return { p: `${n}³`, a: (n * n * n).toString() };
+    },
+    "fractions": () => {
+      const fracs = [
+        { p: "50%", a: "1/2" }, { p: "33.33%", a: "1/3" },
+        { p: "25%", a: "1/4" }, { p: "20%", a: "1/5" },
+        { p: "16.66%", a: "1/6" }, { p: "14.28%", a: "1/7" },
+        { p: "12.5%", a: "1/8" }, { p: "11.11%", a: "1/9" },
+        { p: "9.09%", a: "1/11" }, { p: "8.33%", a: "1/12" },
+        { p: "75%", a: "3/4" }, { p: "37.5%", a: "3/8" },
+        { p: "62.5%", a: "5/8" }, { p: "66.66%", a: "2/3" }
+      ];
+      return fracs[Math.floor(Math.random() * fracs.length)];
+    }
+  };
+
+  const elements = {
+    mode: document.getElementById("modeSelect"),
+    time: document.getElementById("timeSelect"),
+    problem: document.getElementById("problemDisplay"),
+    input: document.getElementById("answerInput"),
+    status: document.getElementById("statusMessage"),
+    show: document.getElementById("showAnswerBtn"),
+    sprintBtn: document.getElementById("sprintBtn"),
+    timer: document.getElementById("timerDisplay"),
+    score: document.getElementById("currentScoreDisplay"),
+    acc: document.getElementById("accuracyDisplay"),
+    best: document.getElementById("bestScoreDisplay")
+  };
+
+  let currentProblem = null;
+  let attempts = 0;
+  let score = 0;
+  let timeLeft = 60;
+  let timerInterval = null;
+  let isSprintActive = false;
+
+  let bestScores = JSON.parse(localStorage.getItem('rrb_best_scores')) || { tables: 0, squares: 0, cubes: 0, fractions: 0 };
+
+  function formatTime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  function updateBestScoreUI() {
+    const mode = elements.mode.value;
+    elements.best.textContent = bestScores[mode] || 0;
+  }
+
+  function startSprint() {
+    isSprintActive = true;
+    score = 0;
+    attempts = 0;
+    timeLeft = parseInt(elements.time.value, 10);
+    
+    elements.input.disabled = false;
+    elements.show.disabled = false;
+    elements.sprintBtn.disabled = true;
+    elements.sprintBtn.style.opacity = '0.5';
+    elements.timer.classList.remove('timer-warning');
+    
+    updateStatsUI();
+    elements.timer.textContent = formatTime(timeLeft);
+    nextQuestion();
+    elements.input.focus();
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      elements.timer.textContent = formatTime(timeLeft);
+      
+      if (timeLeft <= 10 && timeLeft > 0) {
+        elements.timer.classList.add('timer-warning');
+      }
+      
+      if (timeLeft <= 0) endSprint();
+    }, 1000);
+  }
+
+  function endSprint() {
+    clearInterval(timerInterval);
+    isSprintActive = false;
+    elements.input.disabled = true;
+    elements.show.disabled = true;
+    elements.sprintBtn.disabled = false;
+    elements.sprintBtn.style.opacity = '1';
+    elements.timer.classList.remove('timer-warning');
+    elements.timer.textContent = "00:00";
+    elements.problem.textContent = "Time's Up!";
+    elements.status.textContent = `Final Score: ${score}`;
+    elements.status.style.color = "var(--accent)";
+    
+    const mode = elements.mode.value;
+    if (score > (bestScores[mode] || 0)) {
+      bestScores[mode] = score;
+      localStorage.setItem('rrb_best_scores', JSON.stringify(bestScores));
+      updateBestScoreUI();
+      elements.status.textContent = `New Best Score: ${score}!`;
+      elements.status.style.color = "var(--success)";
+    }
+  }
+
+  function updateStatsUI() {
+    elements.score.textContent = score;
+    const accuracy = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
+    elements.acc.textContent = `${accuracy}%`;
+  }
+
+  function nextQuestion() {
+    const genFunc = generators[elements.mode.value];
+    currentProblem = genFunc();
+    
+    elements.problem.classList.remove('slide-in');
+    void elements.problem.offsetWidth; 
+    elements.problem.classList.add('slide-in');
+    
+    elements.problem.textContent = currentProblem.p;
+    elements.input.value = "";
+    elements.input.focus();
+  }
+
+  function checkAnswer() {
+    if (!isSprintActive) return;
+    
+    const userAns = elements.input.value.trim().toLowerCase();
+    if (!userAns) return;
+
+    attempts++;
+    if (userAns === currentProblem.a) {
+      score++;
+      elements.status.textContent = "";
+      
+      elements.input.classList.add('success-flash');
+      setTimeout(() => elements.input.classList.remove('success-flash'), 250);
+      
+      nextQuestion();
+    } else {
+      elements.input.classList.add('shake');
+      elements.status.style.color = "var(--fail)";
+      elements.status.textContent = "Incorrect";
+      setTimeout(() => {
+        elements.input.classList.remove('shake');
+        elements.status.textContent = "";
+        elements.input.value = "";
+      }, 400);
+    }
+    updateStatsUI();
+  }
+
+  elements.input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") checkAnswer();
+  });
+
+  elements.show.addEventListener("click", () => {
+    if (!isSprintActive) return;
+    elements.status.style.color = "var(--warning)";
+    elements.status.textContent = `Answer: ${currentProblem.a}`;
+    elements.input.value = currentProblem.a;
+    elements.input.focus();
+  });
+
+  elements.mode.addEventListener("change", () => {
+    if (isSprintActive) endSprint();
+    updateBestScoreUI();
+    elements.problem.textContent = "Ready";
+    elements.timer.textContent = "00:00";
+    score = 0; attempts = 0;
+    updateStatsUI();
+  });
+
+  elements.time.addEventListener("change", () => {
+    if (isSprintActive) endSprint();
+    elements.timer.textContent = formatTime(parseInt(elements.time.value, 10));
+  });
+
+  elements.sprintBtn.addEventListener("click", startSprint);
+  
+  // Init
+  updateBestScoreUI();
+  elements.timer.textContent = formatTime(parseInt(elements.time.value, 10));
+</script>
+</body>
+</html>
